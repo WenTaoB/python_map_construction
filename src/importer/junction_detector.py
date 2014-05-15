@@ -248,7 +248,6 @@ def main():
     else:
         if len(sys.argv) != 3:
             print "ERROR! Correct usage is:"
-            print "\tpython sample_point_patches.py [sample_point_cloud.dat] [sample_point_direction.dat]"
             return
         with open(sys.argv[1], 'rb') as fin:
             sample_point_cloud = cPickle.load(fin)
@@ -262,7 +261,7 @@ def main():
     
     SEARCH_RADIUS = 100
     WIDTH_THRESHOLD = 25
-    ANGLE_THRESHOLD = np.pi / 4.0
+    ANGLE_THRESHOLD = np.pi / 6.0
     MIN_PT_TO_RECORD = 5
     fig = plt.figure(figsize=const.figsize)
     ax = fig.add_subplot(111, aspect='equal')
@@ -301,25 +300,25 @@ def main():
                 killed_sample[sample_idx] = 1
 
             # Check if it can be inserted into existing sample_patches
-            #if len(revised_canonical_directions[sample_idx]) == 0:
-            #    for existing_patch in sample_patches:
-            #        dist, min_pt_idx = existing_patch.min_distance(sample_pt, sample_point_cloud)
-            #        if dist < SEARCH_RADIUS:
-            #            vec = sample_pt - sample_point_cloud.locations[min_pt_idx]
-            #            if abs(np.dot(vec, sample_norm)) > WIDTH_THRESHOLD:
-            #                continue
-            #            
-            #            if len(revised_canonical_directions[sample_idx]) == 0:
-            #                killed_sample[sample_idx] = 1
-            #                existing_patch.insert_pt(sample_idx, sample_point_cloud)
-            #                break
+            if len(revised_canonical_directions[sample_idx]) == 0:
+                for existing_patch in sample_patches:
+                    dist, min_pt_idx = existing_patch.min_distance(sample_pt, sample_point_cloud)
+                    if dist < SEARCH_RADIUS:
+                        vec = sample_pt - sample_point_cloud.locations[min_pt_idx]
+                        if abs(np.dot(vec, sample_norm)) > WIDTH_THRESHOLD:
+                            continue
+                        
+                        if len(revised_canonical_directions[sample_idx]) == 0:
+                            killed_sample[sample_idx] = 1
+                            existing_patch.insert_pt(sample_idx, sample_point_cloud)
+                            break
 
-            #            for sample_dir_idx in range(0, len(revised_canonical_directions[sample_idx])):
-            #                sample_dir = revised_canonical_directions[sample_idx][sample_dir_idx]
-            #                if np.dot(sample_dir, existing_patch.direction) > ANGLE_THRESHOLD:
-            #                    existing_patch.insert_pt(sample_idx, sample_point_cloud)
-            #                    sample_flags[sample_idx][sample_dir_idx] = 1
-            #                    break
+                        for sample_dir_idx in range(0, len(revised_canonical_directions[sample_idx])):
+                            sample_dir = revised_canonical_directions[sample_idx][sample_dir_idx]
+                            if np.dot(sample_dir, existing_patch.direction) > ANGLE_THRESHOLD:
+                                existing_patch.insert_pt(sample_idx, sample_point_cloud)
+                                sample_flags[sample_idx][sample_dir_idx] = 1
+                                break
             
             for flag in sample_flags[sample_idx]:
                 if flag == 0:
@@ -378,11 +377,10 @@ def main():
             if not has_unmarked_flag:
                 killed_sample[sample_idx] = 1
 
-            if len(filtered_sample_idxs) >= 5:
-                new_sample_patch = SamplePatch(filtered_sample_idxs, 
-                                               filtered_sample_dirs,
-                                               sample_point_cloud)
-                sample_patches.append(new_sample_patch)
+            new_sample_patch = SamplePatch(filtered_sample_idxs, 
+                                           filtered_sample_dirs,
+                                           sample_point_cloud)
+            sample_patches.append(new_sample_patch)
 
         print "total: %d, killed: %d"%(sample_point_cloud.directions.shape[0], len(killed_sample.keys()))
         if len(killed_sample.keys()) == sample_point_cloud.directions.shape[0]:
@@ -391,8 +389,6 @@ def main():
     print "There are %d patches"%len(sample_patches)
 
     for patch_idx in range(0, len(sample_patches)):
-        if patch_idx != 7:
-            continue
         patch = sample_patches[patch_idx]
         dot_value = np.dot(patch.direction, np.array((1.0, 0.0)))
         angle = np.degrees(np.arccos(dot_value))
@@ -434,7 +430,7 @@ def main():
                      patch.direction[1],
                      width=0.5, head_width=5, fc=color, ec=color,
                      head_length=10, overhang=0.5, **arrow_params)
-        break
+
     #for i in range(0, sample_point_cloud.locations.shape[0]):
     #    for direction in revised_canonical_directions[i]:
     #        ax.arrow(sample_point_cloud.locations[i][0],

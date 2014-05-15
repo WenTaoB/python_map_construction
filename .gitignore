@@ -1,3 +1,7 @@
 *.dat
 *.png
 *.gpickle
+*.txt
+*.pyc
+existing_works/
+osm_data/

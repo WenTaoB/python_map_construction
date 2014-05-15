@@ -192,18 +192,18 @@ def extract_line_segments(point_cloud, grid_size, loc, R,
 
     all_lines = []
     lines = probabilistic_hough_line(sample_img, 
-                                     line_length=100,
-                                     line_gap=10)
-    #fig = plt.figure(figsize=const.figsize)
-    #ax = fig.add_subplot(111)
-    #ax.imshow(sample_img.T, cmap='gray')
-    #for line in lines:
-    #    ax.plot([line[0][1], line[1][1]],
-    #            [line[0][0], line[1][0]], 'r-')
+                                     line_length=50,
+                                     line_gap=15)
+    fig = plt.figure(figsize=const.figsize)
+    ax = fig.add_subplot(111)
+    ax.imshow(sample_img.T, cmap='gray')
+    for line in lines:
+        ax.plot([line[0][1], line[1][1]],
+                [line[0][0], line[1][0]], 'r-', linewidth=2)
 
-    #ax.set_xlim([0, sample_img.shape[0]])
-    #ax.set_ylim([0, sample_img.shape[1]])
-    #plt.show()
+    ax.set_xlim([0, sample_img.shape[0]])
+    ax.set_ylim([0, sample_img.shape[1]])
+    plt.show()
     all_lines.extend(lines)
     modified_img1 = remove_pixels(sample_img, 
                                   lines, 
@@ -211,19 +211,19 @@ def extract_line_segments(point_cloud, grid_size, loc, R,
                                   search_range=search_range)
 
     new_lines1 = probabilistic_hough_line(modified_img1, 
-                                         line_length=50,
+                                         line_length=25,
                                          line_gap=10)
 
-    #fig = plt.figure(figsize=const.figsize)
-    #ax = fig.add_subplot(111)
-    #ax.imshow(modified_img1.T, cmap='gray')
-    #for line in new_lines1:
-    #    ax.plot([line[0][1], line[1][1]],
-    #            [line[0][0], line[1][0]], 'r-')
+    fig = plt.figure(figsize=const.figsize)
+    ax = fig.add_subplot(111)
+    ax.imshow(modified_img1.T, cmap='gray')
+    for line in new_lines1:
+        ax.plot([line[0][1], line[1][1]],
+                [line[0][0], line[1][0]], 'r-', linewidth=2)
 
-    #ax.set_xlim([0, sample_img.shape[0]])
-    #ax.set_ylim([0, sample_img.shape[1]])
-    #plt.show()
+    ax.set_xlim([0, sample_img.shape[0]])
+    ax.set_ylim([0, sample_img.shape[1]])
+    plt.show()
  
     all_lines.extend(new_lines1)
     modified_img2 = remove_pixels(modified_img1,
@@ -232,19 +232,19 @@ def extract_line_segments(point_cloud, grid_size, loc, R,
                                   search_range=search_range)
 
     new_lines2 = probabilistic_hough_line(modified_img2,
-                                          line_length=25,
+                                          line_length=10,
                                           line_gap=10)
 
-    #fig = plt.figure(figsize=const.figsize)
-    #ax = fig.add_subplot(111)
-    #ax.imshow(modified_img2.T, cmap='gray')
-    #for line in new_lines2:
-    #    ax.plot([line[0][1], line[1][1]],
-    #            [line[0][0], line[1][0]], 'r-')
+    fig = plt.figure(figsize=const.figsize)
+    ax = fig.add_subplot(111)
+    ax.imshow(modified_img2.T, cmap='gray')
+    for line in new_lines2:
+        ax.plot([line[0][1], line[1][1]],
+                [line[0][0], line[1][0]], 'r-', linewidth=2)
 
-    #ax.set_xlim([0, sample_img.shape[0]])
-    #ax.set_ylim([0, sample_img.shape[1]])
-    #plt.show()
+    ax.set_xlim([0, sample_img.shape[0]])
+    ax.set_ylim([0, sample_img.shape[1]])
+    plt.show()
  
     all_lines.extend(new_lines2)
     modified_img3 = remove_pixels(modified_img2,
@@ -253,19 +253,19 @@ def extract_line_segments(point_cloud, grid_size, loc, R,
                                   search_range=search_range)
 
     new_lines3 = probabilistic_hough_line(modified_img3,
-                                          line_length=10,
-                                          line_gap=8)
+                                          line_length=5,
+                                          line_gap=5)
    
-    #fig = plt.figure(figsize=const.figsize)
-    #ax = fig.add_subplot(111)
-    #ax.imshow(modified_img3.T, cmap='gray')
-    #for line in new_lines3:
-    #    ax.plot([line[0][1], line[1][1]],
-    #            [line[0][0], line[1][0]], 'r-')
+    fig = plt.figure(figsize=const.figsize)
+    ax = fig.add_subplot(111)
+    ax.imshow(modified_img3.T, cmap='gray')
+    for line in new_lines3:
+        ax.plot([line[0][1], line[1][1]],
+                [line[0][0], line[1][0]], 'r-', linewidth=2)
 
-    #ax.set_xlim([0, sample_img.shape[0]])
-    #ax.set_ylim([0, sample_img.shape[1]])
-    #plt.show()
+    ax.set_xlim([0, sample_img.shape[0]])
+    ax.set_ylim([0, sample_img.shape[1]])
+    plt.show()
 
     all_lines.extend(new_lines3)
 
@@ -295,7 +295,7 @@ def visualize_extracted_lines(point_cloud, lines, loc, R):
     for line in lines:
         ax.plot([line[0][0], line[1][0]],
                 [line[0][1], line[1][1]],
-                'r-')
+                '-')
     ax.set_xlim([loc[0]-R, loc[0]+R])
     ax.set_ylim([loc[1]-R, loc[1]+R])
     plt.show()
@@ -429,29 +429,28 @@ def main():
     if len(sys.argv) != 5:
         print "ERROR! Correct usage is:"
         return
-   
     
     GRID_SIZE = 2.5 # in meters
 
     # Target location and radius
     # test_point_cloud.dat
-    #LOC = (447772, 4424300)
-    #R = 500
+    LOC = (447772, 4424300)
+    R = 500
 
     # test_point_cloud1.dat
     #LOC = (446458, 4422150)
     #R = 500
 
     # San Francisco
-    LOC = (551281, 4180430) 
-    R = 500
+    #LOC = (551281, 4180430) 
+    #R = 500
 
     with open(sys.argv[1], "rb") as fin:
         point_cloud = cPickle.load(fin)
     print "there are %d points in the point cloud."%point_cloud.locations.shape[0]
     tracks = gps_track.load_tracks(sys.argv[2])
 
-    compute_canonical_dir = False
+    compute_canonical_dir = True
     if compute_canonical_dir:
         LINE_GAP = 40
         SEARCH_RANGE = 5
@@ -465,8 +464,8 @@ def main():
                                       SEARCH_RANGE,
                                       P_REMOVAL)
 
-        #visualize_extracted_lines(point_cloud, lines, LOC, R)
-        #return 
+        visualize_extracted_lines(point_cloud, lines, LOC, R)
+        return 
 
         line_vecs = []
         line_norms = []

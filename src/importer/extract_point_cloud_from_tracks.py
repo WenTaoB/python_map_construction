@@ -1,38 +1,47 @@
 #!/usr/bin/env python
 """
-Using a unified grid to rasterize GPS tracks.
+Extract point cloud from a collection of GPS tracks.
 """
 
 import sys
 import cPickle
+from optparse import OptionParser
 
+import numpy as np
 import gps_track
 from point_cloud import PointCloud
 import const
 
 def main():
-    if len(sys.argv) != 3:
-        print "ERROR! Correct usage is"
-        print "\tpython extract_point_cloud_from_tracks.py [track_file.dat] [output_point_cloud.dat]"
-        return
+    parser = OptionParser()
 
-    tracks = gps_track.load_tracks(sys.argv[1])
+    parser.add_option("-t", "--track", dest="track_file", help="GPS track file name", metavar="TRACK_FILE", type="string")
+    parser.add_option("-o", "--output", dest="output_filename", help="Output point cloud file name, e.g., output_point_cloud.dat", type="string")
+    parser.add_option("--test_case", dest="test_case", type="int", help="Test cases: 0: region-0; 1: region-1; 2: SF-region.", default=0)
 
-    # Target location and region radius
-    #LOC = (447772, 4424300)
-    #R = 500
+    (options, args) = parser.parse_args()
 
-    #LOC = (446458, 4422150)
-    #R = 500
+    if not options.track_file:
+        parser.error("Track file not given.")
+    if not options.output_filename:
+        parser.error("Output pointcloud filename not given.")
+   
+    R = const.R
+    if options.test_case == 0:
+        LOC = const.Region_0_LOC
+    elif options.test_case == 1:
+        LOC = const.Region_1_LOC
+    elif options.test_case == 2:
+        LOC = const.SF_LOC
+    else:
+        parser.error("Test case indexed %d not supported!"%options.test_case)
 
-    LOC = (551281, 4180430) # San Francisco
-    R = 500
+    tracks = gps_track.load_tracks(options.track_file)
 
-    point_cloud = PointCloud()
+    point_cloud = PointCloud(np.array([]), np.array([]))
     point_cloud.extract_point_cloud(tracks, LOC, R)
     point_cloud.visualize_point_cloud(LOC, R)
-
-    point_cloud.save(sys.argv[2])
+    point_cloud.save(options.output_filename)
 
 if __name__ == "__main__":
     sys.exit(main())

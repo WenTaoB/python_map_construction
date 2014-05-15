@@ -12,18 +12,22 @@ import matplotlib.pyplot as plt
 import const
 
 class PointCloud:
-    def __init__(self):
-        pass
-
-    def __init__(self, points, directions, track_ids):
+    def __init__(self, points, directions):
+        """
+            Initialize:
+            Args:
+                - points: ndarray of points
+                - directions: ndarray of directions
+        """
+        if type(points) != np.ndarray or type(directions) != np.ndarray:
+            print "Error! points and directions to PointCloud class should be numpy ndarray!"
+            return
         self.locations = np.array(points)
         self.directions = np.array(directions)
-        self.track_ids = np.array(track_ids)
 
     def extract_point_cloud(self, tracks, loc, R):
         locations = []
         directions = []
-        track_ids = []
         for track_idx in range(0, len(tracks)):
             track = tracks[track_idx]
             for pt_idx in range(0, len(track.utm)):
@@ -49,12 +53,11 @@ class PointCloud:
                         direction *= 0.0
                     
                     directions.append(direction)
-                    track_ids.append(track_idx)
         self.locations = np.array(locations)
         self.directions = np.array(directions)
-        self.track_ids = np.array(track_ids)
 
     def visualize_point_cloud(self, loc, R):
+        
         fig = plt.figure(figsize=const.figsize)
         ax = fig.add_subplot(121, aspect="equal")
         ax.plot(self.locations[:,0], self.locations[:,1], '.')
@@ -62,10 +65,14 @@ class PointCloud:
         ax.set_ylim([loc[1]-R, loc[1]+R]) 
 
         ax = fig.add_subplot(122, aspect="equal")
-        ax.quiver(self.locations[:,0],
-                  self.locations[:,1],
-                  self.directions[:,0],
-                  self.directions[:,1]) 
+        for i in range(0, self.locations.shape[0]):
+            if np.linalg.norm(self.directions[i]) > 0.1:
+                ax.arrow(self.locations[i,0],
+                         self.locations[i,1],
+                         10*self.directions[i,0], 10*self.directions[i, 1], fc='b', ec='b',
+                         width=0.5, head_width=5,
+                         head_length=10, overhang=0.5, **const.arrow_params)
+
         ax.set_xlim([loc[0]-R, loc[0]+R]) 
         ax.set_ylim([loc[1]-R, loc[1]+R]) 
         plt.show()

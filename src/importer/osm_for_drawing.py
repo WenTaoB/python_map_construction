@@ -2,11 +2,11 @@
 """
 Created by Chen Chen on 01-22-2014.
 """
-
+from shapely.geometry import LineString, Point, Polygon
 import osm_parser
 
 class OSM_DRAW:
-    def __init__(self, G):#nodes, edges):
+    def __init__(self, G):
         """
             G: osm graph
         """

@@ -118,6 +118,7 @@ def grow_segment(starting_pt_idx,
                  sample_point_cloud, 
                  sample_point_kdtree,
                  sample_point_directions,
+                 sample_flags,
                  search_radius,
                  width_threshold,
                  angle_threshold,
@@ -127,6 +128,8 @@ def grow_segment(starting_pt_idx,
             - starting_pt_idx: index in sample_point_cloud.locations
             - sample_point_kdtree: kdtree built from sample_point_cloud.locations
             - sample_point_directions: principal_directions for each sample points
+            - sample_flags: a list of list, recording if the corresponding direction of a sample has 
+                            been marked
             - search_radius: search radius each time to grow the segment
             - width_threshold: distance threshold to the line defined by the searching point
                                and its principal direction
@@ -136,13 +139,15 @@ def grow_segment(starting_pt_idx,
     """
     result_segments = []
     # Search through all its directions
-    for direction in sample_point_directions[starting_pt_idx]:
+    for dir_idx in range(0, len(sample_point_directions[starting_pt_idx])):
+        if sample_flags[starting_pt_idx][dir_idx] == 1:
+            # This direction has already been explored!
+            continue
+        direction = sample_point_directions[starting_pt_idx][dir_idx]
         result_segment_pt_idxs = []
         segment_point_idxs_dict = {}
         segment_point_potential = {} # a rough sorting of the extracted points
 
-        if np.linalg.norm(direction) < 0.1:
-            continue
         front_pt_idx = starting_pt_idx
         end_pt_idx = starting_pt_idx
         front_stopped = False
@@ -163,9 +168,24 @@ def grow_segment(starting_pt_idx,
                 nxt_front_dir = np.array([[0.0, 0.0]])
                 n_pt_to_add = 0
                 for candidate_idx in candidate_nearby_point_idxs:
+                    vec = sample_point_cloud.locations[candidate_idx] - sample_point_cloud.locations[front_pt_idx]
                     if candidate_idx == front_pt_idx:
                         continue
-                    for pt_dir in sample_point_directions[candidate_idx]:
+                    if len(sample_point_directions[candidate_idx]) == 0:
+                        pt_proj = np.dot(vec, front_dir)
+                        if pt_proj > 0 and abs(np.dot(norm_dir, vec)) <= width_threshold:
+                            if not segment_point_idxs_dict.has_key(candidate_idx):
+                                segment_point_idxs_dict[candidate_idx] = front_potential
+                                vec_norm = np.linalg.norm(vec)
+                                if vec_norm <= 0.001:
+                                    segment_point_idxs_dict[candidate_idx] += pt_proj
+                                else:
+                                    segment_point_idxs_dict[candidate_idx] += pt_proj/vec_norm
+                                # This point cannot be the front since it has no direction
+
+                    # Search through the directions of candidate_idx
+                    for pt_dir_idx in range(0, len(sample_point_directions[candidate_idx])):
+                        pt_dir = sample_point_directions[candidate_idx][pt_dir_idx]
                         if np.dot(pt_dir, front_dir) < np.cos(angle_threshold):
                             continue
                         if abs(np.dot(front_dir, pt_dir)) > np.cos(angle_threshold):
@@ -173,6 +193,8 @@ def grow_segment(starting_pt_idx,
                             pt_proj = np.dot(vec, front_dir)
                             if pt_proj > 0 and abs(np.dot(norm_dir, vec)) <= width_threshold:
                                 if not segment_point_idxs_dict.has_key(candidate_idx):
+                                    n_pt_to_add += 1
+                                    sample_flags[candidate_idx][pt_dir_idx] = 1
                                     segment_point_idxs_dict[candidate_idx] = front_potential
                                     vec_norm = np.linalg.norm(vec)
                                     if vec_norm <= 0.001:
@@ -183,26 +205,41 @@ def grow_segment(starting_pt_idx,
                                         nxt_front_pt_proj = pt_proj
                                         nxt_front_pt_idx = candidate_idx
                                         nxt_front_dir = np.copy(pt_dir)
-                                        n_pt_to_add += 1
                 front_pt_idx = nxt_front_pt_idx
                 front_dir = nxt_front_dir
                 
                 if n_pt_to_add == 0:
                     front_stopped = True
-
+            
             if not end_stopped:
                 end_potential -= 1.0
                 candidate_nearby_point_idxs = \
-                        sample_point_kdtree.query_ball_point(sample_point_cloud.locations[front_pt_idx], search_radius)
+                    sample_point_kdtree.query_ball_point(sample_point_cloud.locations[end_pt_idx], search_radius)
                 norm_dir = np.array([-1*direction[1], direction[0]])
                 nxt_end_pt_idx = -1
                 nxt_end_pt_proj = 0.0
                 nxt_end_dir = np.array([[0.0, 0.0]])
                 n_pt_to_add = 0
                 for candidate_idx in candidate_nearby_point_idxs:
+                    vec = sample_point_cloud.locations[candidate_idx] - sample_point_cloud.locations[end_pt_idx]
                     if candidate_idx == end_pt_idx:
                         continue
-                    for pt_dir in sample_point_directions[candidate_idx]:
+                    if len(sample_point_directions[candidate_idx]) == 0:
+                        # This sample point has no direction
+                        pt_proj = np.dot(vec, end_dir)
+                        if pt_proj > 0.0 and abs(np.dot(norm_dir, vec)) <= width_threshold:
+                            if not segment_point_idxs_dict.has_key(candidate_idx):
+                                segment_point_idxs_dict[candidate_idx] = end_potential
+                                vec_norm = np.linalg.norm(vec)
+                                if vec_norm <= 0.001:
+                                    segment_point_idxs_dict[candidate_idx] -= pt_proj
+                                else:
+                                    segment_point_idxs_dict[candidate_idx] -= pt_proj/vec_norm
+                                # This point cannot be the next end since it has no direction
+
+                    # Search through the directions of candidate_idx
+                    for pt_dir_idx in range(0, len(sample_point_directions[candidate_idx])):
+                        pt_dir = sample_point_directions[candidate_idx][pt_dir_idx]
                         if np.dot(pt_dir, end_dir) < np.cos(angle_threshold):
                             continue
                         if abs(np.dot(end_dir, pt_dir)) > np.cos(angle_threshold):
@@ -210,23 +247,24 @@ def grow_segment(starting_pt_idx,
                             pt_proj = np.dot(vec, -1*end_dir)
                             if pt_proj > 0 and abs(np.dot(norm_dir, vec)) <= width_threshold:
                                 if not segment_point_idxs_dict.has_key(candidate_idx):
+                                    n_pt_to_add += 1
+                                    sample_flags[candidate_idx][pt_dir_idx] = 1
                                     segment_point_idxs_dict[candidate_idx] = end_potential
                                     vec_norm = np.linalg.norm(vec)
                                     if vec_norm <= 0.001:
                                         segment_point_idxs_dict[candidate_idx] -= pt_proj
                                     else:
                                         segment_point_idxs_dict[candidate_idx] -= pt_proj/vec_norm
-
                                     if pt_proj > nxt_end_pt_proj:
                                         nxt_end_pt_proj = pt_proj
                                         nxt_end_pt_idx = candidate_idx
                                         nxt_end_dir = np.copy(pt_dir)
-                                        n_pt_to_add += 1
-
                 end_pt_idx = nxt_end_pt_idx
                 end_dir = nxt_end_dir
+                
                 if n_pt_to_add == 0:
                     end_stopped = True
+
             if front_stopped and end_stopped:
                 break
         
@@ -257,7 +295,11 @@ def main():
     #R = 500
 
     # test_point_cloud1.dat
-    LOC = (446458, 4422150)
+    #LOC = (446458, 4422150)
+    #R = 500
+
+    # San Francisco
+    LOC = (551281, 4180430) 
     R = 500
 
     compute_sample_point_cloud = False
@@ -335,14 +377,16 @@ def main():
     #visualize_sample_point_cloud(sample_point_cloud, 
     #                             revised_canonical_directions,
     #                             point_cloud, LOC, R)
+    arrow_params = {'length_includes_head':True, 'shape':'full', 'head_starts_at_zero':False}
     SEARCH_RADIUS = 25
     WIDTH_THRESHOLD = 15
-    ANGLE_THRESHOLD = np.pi / 4.0
-    MIN_PT_TO_RECORD = 5
+    ANGLE_THRESHOLD = np.pi / 6.0
+    MIN_PT_TO_RECORD = 10
     fig = plt.figure(figsize=const.figsize)
     ax = fig.add_subplot(111, aspect='equal')
     sample_point_kdtree = spatial.cKDTree(sample_point_cloud.locations)
-    arrow_params = {'length_includes_head':True, 'shape':'full', 'head_starts_at_zero':False}
+    killed_samples = {}
+    sample_flags = []
 
     #for i in range(0, sample_point_cloud.locations.shape[0]):
     #    for direction in revised_canonical_directions[i]:
@@ -353,45 +397,69 @@ def main():
     #                 width=0.5, head_width=5, fc='gray', ec='gray',
     #                 head_length=10, overhang=0.5, **arrow_params)
 
-    point_count = np.zeros(sample_point_cloud.locations.shape[0])
+    for sample_idx in range(0, sample_point_cloud.locations.shape[0]):
+        flag = []
+        for dir_idx in range(0, len(revised_canonical_directions[sample_idx])):
+            flag.append(0)
+        sample_flags.append(flag)
+
     count = 0
     print "there are %d sample points."%sample_point_cloud.locations.shape[0]
     start_time = time.time()
-    for starting_pt_idx in range(0, sample_point_cloud.locations.shape[0]):
-    #for starting_pt_idx in range(3, 5): 
-        if point_count[starting_pt_idx] > len(revised_canonical_directions[starting_pt_idx]):
-            continue
 
-        result_segments = grow_segment(starting_pt_idx,
-                                       sample_point_cloud,
-                                       sample_point_kdtree,
-                                       revised_canonical_directions,
-                                       SEARCH_RADIUS,
-                                       WIDTH_THRESHOLD,
-                                       ANGLE_THRESHOLD,
-                                       MIN_PT_TO_RECORD)
-        
-        #ax.plot(sample_point_cloud.locations[starting_pt_idx,0],
-        #        sample_point_cloud.locations[starting_pt_idx,1], 'or')
+    segment_collections = []
+    while True:
+        if len(killed_samples.keys()) == sample_point_cloud.locations.shape[0]:
+            break
 
-        for i in range(0, len(result_segments)):
-            count += 1
-            segment_point_idxs = result_segments[i]
-            point_count[segment_point_idxs] += 1
-            color = const.colors[count%7]
-            #ax.plot(sample_point_cloud.locations[segment_point_idxs[-1],0],
-            #        sample_point_cloud.locations[segment_point_idxs[-1],1],
-            #        'o', color=const.colors[count%7], markersize=12)
-            points = np.copy(sample_point_cloud.locations[segment_point_idxs])
-            fitted_curve = l1_skeleton_extraction.skeleton_extraction(points)
-            #sys.exit(1)
-            ax.plot(fitted_curve[:,0], fitted_curve[:, 1], '-', color=color)
+        for sample_idx in range(0, sample_point_cloud.locations.shape[0]):
+            if killed_samples.has_key(sample_idx):
+                continue
+            killed_samples[sample_idx] = 1
+            # Grow segments from this sample
+            result_segments = grow_segment(sample_idx,
+                                           sample_point_cloud,
+                                           sample_point_kdtree,
+                                           revised_canonical_directions,
+                                           sample_flags,
+                                           SEARCH_RADIUS,
+                                           WIDTH_THRESHOLD,
+                                           ANGLE_THRESHOLD,
+                                           MIN_PT_TO_RECORD)
+       
+            # Kill the covered samples
+            for segment_point_idxs in result_segments:
+                segment_collections.append(segment_point_idxs)
+                for pt_idx in segment_point_idxs:
+                    if killed_samples.has_key(pt_idx):
+                        continue
+                    to_kill = True
+                    for dir_idx in range(0, len(revised_canonical_directions[pt_idx])):
+                        if sample_flags[pt_idx][dir_idx] == 0:
+                            to_kill = False
+                    if to_kill:
+                        killed_samples[pt_idx] = 1
+
+    count = 0
+    for i in range(0, len(segment_collections)):
+        segment_point_idxs = segment_collections[i]
+        color = const.colors[np.random.randint(7)]
+        #ax.plot(sample_point_cloud.locations[segment_point_idxs,0],
+        #        sample_point_cloud.locations[segment_point_idxs,1],
+        #        '.', color=color, markersize=12)
+        points = np.copy(sample_point_cloud.locations[segment_point_idxs])
+        fitted_curve = l1_skeleton_extraction.skeleton_extraction(points)
+        #sys.exit(1)
+        if len(fitted_curve) >= 2:
+            ax.plot(fitted_curve[:,0], fitted_curve[:, 1], '-', color=color, linewidth=3)
             ax.arrow(fitted_curve[-2,0], fitted_curve[-2,1],
                      fitted_curve[-1,0]-fitted_curve[-2,0],
                      fitted_curve[-1,1]-fitted_curve[-2,1],
                      width=0.5, head_width=5, fc=color, ec=color,
                      head_length=10, overhang=0.5, **arrow_params)
-
+        count += 1
+        #if count == 10:
+        #    break
     end_time = time.time()
     print "Time elapsed: %d"%(int(end_time-start_time))
     print "There are %d segments."%count
